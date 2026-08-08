@@ -16,23 +16,23 @@ fn main() {
 }
 
 fn run(prog: &Program) -> Result<(), Box<dyn Error>> {
-    println!("{}", prog.bril);
+    println!("{}", prog.bril_js);
 
     Ok(())
 }
 
 struct Program {
-    bril: String,
+    bril_js: String,
 }
 
 impl Program {
     fn build() -> Result<Self, &'static str> {
         let stdin = io::stdin();
         
-        let mut bril = String::new();
-        let Ok(_) = stdin.lock().read_to_string(&mut bril) else {
+        let mut bril_js = String::new();
+        let Ok(_) = stdin.lock().read_to_string(&mut bril_js) else {
             return Err("io::stdin()::read_to_string()");
         };
-        Ok(Program {bril,})
+        Ok(Program {bril_js,})
     }
 }
