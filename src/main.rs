@@ -1,6 +1,11 @@
+
 use std::io::{self, Read,};
 use std::process;
 use std::error::Error;
+
+mod blks;
+
+use blks::cfg;
 
 fn main() {
     let program = Program::build()
@@ -16,7 +21,7 @@ fn main() {
 }
 
 fn run(prog: &Program) -> Result<(), Box<dyn Error>> {
-    println!("{}", prog.bril_js);
+    cfg(&prog.bril_js)?;
 
     Ok(())
 }

@@ -2,92 +2,297 @@
   a block is a set of instructions, 
   that end either on a label or a terminator instruction
 */
-
-// use std::collections::HashMap;
 use std::error::Error;
 use serde::Deserialize;
 
-fn cfg(bril_js: &str) {
-  for func in functions(bril_js) {
-    println!("function: {func:?}");
+pub fn cfg(bril_js: &str) -> Result<(), Box<dyn Error>>{
+  for func in functions(bril_js)? {
+    println!("function: {func:#?}");
   }
+
+  Ok(())
 }
 
-fn functions(bril_js: &str) -> Result<Vec<BrilFunc>, Box<dyn Error>> {
-  unimplemented!("blks::functions()")
+fn functions(bril_js: &str) -> Result<Vec<BrilFunction>, Box<dyn Error>> {
+  #[derive(Debug, Deserialize)]
+  struct Functions{functions: Vec<BrilFunction>}
+
+  let fs: Functions = serde_json::from_str(bril_js)?;
+
+  Ok(fs.functions)
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum BrilFunction {
   RetFun{
     name:     String,
+    /*optional field*/
+    #[serde(default)]
     args:     Vec<Arg>,
     #[serde(rename="type")]
-    ret_type: String,
+    ret_type: Type,
     instrs:   Vec<Instr>,
   },
   Fun{
     name:   String,
+    /*optional field*/
+    #[serde(default)]
     args:   Vec<Arg>,
     instrs: Vec<Instr>,
   },
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum Type {
-  Prim(String),
-  Param,
+  Primitive     (String),
+  Parameterized {ptr: Box<Type>},
 }
 
 #[derive(Debug, Deserialize)]
 struct Arg {
   name:     String,
   #[serde(rename="type")]
-  arg_type: String,
+  arg_type: Type,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum Instr {
-  Label {label: String},
   Instr(Instruction),
+  Label{label: String},
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
 enum Instruction {
   Const {
-    dest: ,
+    op:         String,
+    dest:       String,
     #[serde(rename="type")]
-    const_type: ,
-      
+    instr_type: Type,
+    value:      Literal,
   },
-  Val {},
-  Effect {},
+  Val {
+    op:         String,
+    dest:       String,
+    #[serde(rename="type")]
+    instr_type: Type,
+
+    /*optional fields*/
+    #[serde(default)]
+    args:   Vec<String>,
+    #[serde(default)]
+    funcs:  Vec<String>,
+    #[serde(default)]
+    labels: Vec<String>,
+  },
+  Effect {
+    op: String,
+
+    /*optional fields*/
+    #[serde(default)]
+    args:   Vec<String>,
+    #[serde(default)]
+    funcs:  Vec<String>,
+    #[serde(default)]
+    labels: Vec<String>,
+  },
+}
+
+#[derive(Debug,Deserialize)]
+#[serde(untagged)]
+enum Literal {
+  Num(serde_json::Number),
+  Bool(bool),
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::blks::BrilFunc;
+    use super::*;
 
-  #[test]
-  fn functions() {
-    let bril_js = r#"functions": [
-      {
-        "name": "add5",
-        "args": [{"name": "n", "type": "int"}],
-        "type": "int",
-        "instrs": [
-          { "op": "const", "type": "int", "dest": "five", "value": 5 },
-        ]
-      }
-    ]"#;
+    #[test]
+    fn parses_function_without_return_type() {
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "main",
+              "instrs": [
+                {"op": "const", "dest": "a", "type": "int", "value": 4},
+                {"op": "print", "args": ["a"]}
+              ]
+            }
+          ]
+        }"#;
 
-    let expected = BrilFunc {
-      name: String::from("add5"),
-      args:
-      #[serde(rename="type")]
-      fun_type: String::from("int"),
-      instrs: ,
-    };
-    assert_eq!(vec![],)
-  }
+        let funcs = functions(json).expect("should parse");
+        assert_eq!(funcs.len(), 1);
 
+        match &funcs[0] {
+            BrilFunction::Fun { name, args, instrs } => {
+                assert_eq!(name, "main");
+                assert!(args.is_empty(), "missing args should default to empty");
+                assert_eq!(instrs.len(), 2);
+            }
+            other => panic!("expected Fun variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_function_with_return_type() {
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "add",
+              "args": [{"name": "x", "type": "int"}, {"name": "y", "type": "int"}],
+              "type": "int",
+              "instrs": [
+                {"op": "add", "dest": "sum", "type": "int", "args": ["x", "y"]},
+                {"op": "ret", "args": ["sum"]}
+              ]
+            }
+          ]
+        }"#;
+
+        let funcs = functions(json).expect("should parse");
+
+        match &funcs[0] {
+            BrilFunction::RetFun { name, args, ret_type, instrs } => {
+                assert_eq!(name, "add");
+                assert_eq!(args.len(), 2);
+                assert!(matches!(ret_type, Type::Primitive(t) if t == "int"));
+                assert_eq!(instrs.len(), 2);
+            }
+            other => panic!("expected RetFun variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_labels_as_labels_not_instructions() {
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "loop",
+              "instrs": [
+                {"label": "start"},
+                {"op": "print", "args": ["x"]},
+                {"label": "end"}
+              ]
+            }
+          ]
+        }"#;
+
+        let funcs = functions(json).expect("should parse");
+
+        let BrilFunction::Fun { instrs, .. } = &funcs[0] else {
+            panic!("expected Fun variant");
+        };
+
+        assert!(matches!(&instrs[0], Instr::Label{label}  if label == "start"));
+        assert!(matches!(&instrs[1], Instr::Instr(_)));
+        assert!(matches!(&instrs[2], Instr::Label{label} if label == "end"));
+    }
+
+    #[test]
+    fn parses_effect_instruction_with_no_dest() {
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "f",
+              "instrs": [
+                {"op": "jmp", "labels": ["start"]}
+              ]
+            }
+          ]
+        }"#;
+
+        let funcs = functions(json).expect("should parse");
+        let BrilFunction::Fun { instrs, .. } = &funcs[0] else {
+            panic!("expected Fun variant");
+        };
+
+        match &instrs[0] {
+            Instr::Instr(Instruction::Effect { op, labels, .. }) => {
+                assert_eq!(op, "jmp");
+                assert_eq!(labels, &vec!["start".to_string()]);
+            }
+            other => panic!("expected Effect instruction, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn const_before_val_in_untagged_ordering() {
+        // Regression guard: Const has an extra `value` field that Val lacks.
+        // If Val were listed before Const in the enum, this could still parse
+        // as a Val followed by an unknown-field error, or worse, silently
+        // ignore `value`. This test pins Const's actual shape.
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "f",
+              "instrs": [
+                {"op": "const", "dest": "x", "type": "bool", "value": true}
+              ]
+            }
+          ]
+        }"#;
+
+        let funcs = functions(json).expect("should parse");
+        let BrilFunction::Fun { instrs, .. } = &funcs[0] else {
+            panic!("expected Fun variant");
+        };
+
+        match &instrs[0] {
+            Instr::Instr(Instruction::Const { dest, value, .. }) => {
+                assert_eq!(dest, "x");
+                assert!(matches!(value, Literal::Bool(true)));
+            }
+            other => panic!("expected Const instruction, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_pointer_type() {
+        let json = r#"
+        {
+          "functions": [
+            {
+              "name": "f",
+              "args": [{"name": "p", "type": {"ptr": "int"}}],
+              "instrs": []
+            }
+          ]
+        }"#;
+
+        let funcs = functions(json).expect("should parse");
+        let BrilFunction::Fun { args, .. } = &funcs[0] else {
+            panic!("expected Fun variant");
+        };
+
+        match &args[0].arg_type {
+            Type::Parameterized { ptr } => {
+                assert!(matches!(ptr.as_ref(), Type::Primitive(t) if t == "int"));
+            }
+            other => panic!("expected Parameterized type, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_malformed_json() {
+        let json = r#"{ "functions": [ { "name": "f" "instrs": [] } ] }"#; // missing comma
+        assert!(functions(json).is_err());
+    }
+
+    #[test]
+    fn empty_functions_list_is_ok() {
+        let json = r#"{"functions": []}"#;
+        let funcs = functions(json).expect("should parse");
+        assert!(funcs.is_empty());
+    }
 }
