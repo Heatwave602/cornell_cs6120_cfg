@@ -4,16 +4,11 @@ use std::mem::take;
 
 use crate::parse::{InstrLbl, Instruction};
 
-enum BlocksErr {
-  InstrsEmpty,
-}
-
-pub type Blk<'a> = Vec<&'a Instruction>;
+pub type Blk = Vec<Instruction>;
 
 pub fn blocks(
-  instrs: &[InstrLbl],
+  instrs: Vec<InstrLbl>,
 ) -> Result<Vec<Blk>, Box<dyn Error>> {
-  // if instrs.is_empty() {return Err();}
 
   let mut blks: Vec<Blk> = Vec::new();
   let mut curr_blk = Vec::new();
@@ -21,8 +16,10 @@ pub fn blocks(
   for instr in instrs {
     match instr {
       InstrLbl::Instr(i) => {
+        let is_terminator = i.is_terminator();
+
         curr_blk.push(i);
-        if i.is_terminator() {
+        if is_terminator {
           let curr = take(&mut curr_blk);
           blks.push(curr);
         }
@@ -36,6 +33,7 @@ pub fn blocks(
       },
     }
   }
+  if !curr_blk.is_empty() {blks.push(curr_blk);}
 
   Ok(blks)
 }

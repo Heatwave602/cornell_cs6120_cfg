@@ -37,28 +37,46 @@ pub enum BrilFunction {
   },
 }
 
-#[derive(Debug, Deserialize)]
+impl BrilFunction {
+  pub fn name(&self) -> &str {
+    match self {
+      BrilFunction::RetFun { name, .. } => name,
+      BrilFunction::Fun { name, .. }    => name,
+    }
+  }
+
+  pub fn instrs(&self) -> &[InstrLbl] {
+    match self {
+      BrilFunction::RetFun {name:_, args:_, ret_type:_, 
+        instrs} => instrs,
+      BrilFunction::Fun {name:_, args:_, 
+        instrs} => instrs,
+    }
+  }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
-enum Type {
+pub enum Type {
   Primitive     (String),
   Parameterized {ptr: Box<Type>},
 }
 
 #[derive(Debug, Deserialize)]
-struct Arg {
+pub struct Arg {
   name:     String,
   #[serde(rename="type")]
   arg_type: Type,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum InstrLbl {
   Instr(Instruction),
   Label{label: String},
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum Instruction {
   Const {
@@ -105,7 +123,7 @@ impl Instruction {
   }
 }
 
-#[derive(Debug,Deserialize)]
+#[derive(Debug,Deserialize, Clone)]
 #[serde(untagged)]
 enum Literal {
   Num(serde_json::Number),

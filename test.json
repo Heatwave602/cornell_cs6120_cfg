@@ -1,11 +1,11 @@
 {
   "functions": [
     {
-      "name": "add5",
+      "name": "add4",
       "args": [{"name": "n", "type": "int"}],
       "type": "int",
       "instrs": [
-        { "op": "const", "type": "int", "dest": "five", "value": 5 },
+        { "op": "const", "type": "int", "dest": "five", "value": 4 },
         { "op": "add", "type": "int", "dest": "sum",
           "args": ["n", "five"] },
         { "op": "ret", "args": ["sum"] }

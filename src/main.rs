@@ -3,7 +3,7 @@ use std::io::{self, Read,};
 use std::process;
 use std::error::Error;
 
-use mycfg::build_blks;
+use mycfg::{build_blks};
 
 fn main() {
     let program = Program::build()
@@ -19,8 +19,9 @@ fn main() {
 }
 
 fn run(prog: &Program) -> Result<(), Box<dyn Error>> {
+    println!("function -> blocks");
     for (function, blks) in build_blks(&prog.bril_js)? {
-        println!("function: {function}\nblock: {blks:#?}");
+        println!("function: {function}\nblocks: {blks:#?}");
     }
 
     Ok(())

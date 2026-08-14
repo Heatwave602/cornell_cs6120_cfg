@@ -1,0 +1,74 @@
+function -> blocks
+function: main
+blocks: [
+    [
+        Const {
+            op: "const",
+            dest: "a",
+            instr_type: Primitive(
+                "int",
+            ),
+            value: Num(
+                Number(9),
+            ),
+        },
+        Val {
+            op: "call",
+            dest: "b",
+            instr_type: Primitive(
+                "int",
+            ),
+            args: [
+                "a",
+            ],
+            funcs: [
+                "add5",
+            ],
+            labels: [],
+        },
+        Effect {
+            op: "print",
+            args: [
+                "b",
+            ],
+            funcs: [],
+            labels: [],
+        },
+    ],
+]
+function: add4
+blocks: [
+    [
+        Const {
+            op: "const",
+            dest: "five",
+            instr_type: Primitive(
+                "int",
+            ),
+            value: Num(
+                Number(4),
+            ),
+        },
+        Val {
+            op: "add",
+            dest: "sum",
+            instr_type: Primitive(
+                "int",
+            ),
+            args: [
+                "n",
+                "five",
+            ],
+            funcs: [],
+            labels: [],
+        },
+        Effect {
+            op: "ret",
+            args: [
+                "sum",
+            ],
+            funcs: [],
+            labels: [],
+        },
+    ],
+]
