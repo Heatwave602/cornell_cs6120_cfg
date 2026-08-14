@@ -73,7 +73,7 @@ pub struct Arg {
 #[serde(untagged)]
 pub enum InstrLbl {
   Instr(Instruction),
-  Label{label: String},
+  Label(Lbl),
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -111,6 +111,11 @@ pub enum Instruction {
     #[serde(default)]
     labels: Vec<String>,
   },
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Lbl {
+  label_name: String,
 }
 
 impl Instruction {
@@ -214,9 +219,9 @@ mod tests {
             panic!("expected Fun variant");
         };
 
-        assert!(matches!(&instrs[0], InstrLbl::Label{label}  if label == "start"));
+        assert!(matches!(&instrs[0], InstrLbl::Label(Lbl{label_name}) if label_name == "start"));
         assert!(matches!(&instrs[1], InstrLbl::Instr(_)));
-        assert!(matches!(&instrs[2], InstrLbl::Label{label} if label == "end"));
+        assert!(matches!(&instrs[2], InstrLbl::Label(Lbl{label_name}) if label_name == "end"));
     }
 
     #[test]
